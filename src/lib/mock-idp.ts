@@ -28,11 +28,11 @@ export type TokenBundle = {
 };
 
 function getSecret(): string {
-  const secret = process.env.JWT_SECRET;
-  if (!secret) {
-    throw new Error("JWT_SECRET is not set");
-  }
-  return secret;
+  // Mock IdP only — fall back so previews work before env vars are set in Vercel.
+  return (
+    process.env.JWT_SECRET ||
+    "mock-idp-dev-secret-not-for-production-use"
+  );
 }
 
 export function randomId(bytes = 16): string {
