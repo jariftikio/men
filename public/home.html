@@ -709,8 +709,8 @@ body {
     <!-- Step 1 — login form -->
     <div class="step on" id="s1">
       <div class="m-brand"><div class="m-oval"></div>Sexual_ed</div>
-      <h2>Create your account</h2>
-      <p class="m-sub">Join the World Sexual Health Day movement</p>
+      <h2 id="authTitle">Create your account</h2>
+      <p class="m-sub" id="authSub">Join the World Sexual Health Day movement</p>
       <div class="oauth-badge">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
         <span>Secured with OAuth 2.0 Authorization Code + PKCE (S256)</span>
@@ -736,9 +736,12 @@ body {
           <path fill="#FBBC05" d="M10.5 28.6c-.5-1.5-.8-3-.8-4.6s.3-3.1.8-4.6l-8-6.2C.9 16.5 0 20.1 0 24s.9 7.5 2.6 10.8z"/>
           <path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.7-6c-2.2 1.5-5 2.3-8.2 2.3-6.3 0-11.6-4.2-13.5-9.9l-8 6.2C6.5 42.6 14.6 48 24 48z"/>
         </svg>
-        <span>Continue with Google</span>
+        <span id="socialLbl">Continue with Google</span>
       </button>
-      <p class="m-footer">Already have an account? <a href="#" onclick="return false">Sign in</a></p>
+      <p class="m-footer" id="authFooter">
+        Already have an account?
+        <a href="#" id="authToggle" onclick="toggleAuthMode(event)">Sign in</a>
+      </p>
     </div>
 
     <!-- Step 2 — consent -->
@@ -945,6 +948,7 @@ const OAUTH = {
   scope:       'openid profile email events:write',
   idpBase:     (window.__MOCK_IDP_URL__) || (location.origin + '/api/mock-idp'),
   storageKey:  'se_oauth_pkce',
+  mode:        'signup', /* 'signup' | 'signin' */
   state:       null,
   verifier:    null,
   challenge:   null,
@@ -1004,11 +1008,45 @@ async function beginAuthorize(loginHint) {
 /* =========================================
    AUTH FLOW
    ========================================= */
-async function openAuth() {
+function setAuthMode(mode) {
+  OAUTH.mode = mode === 'signin' ? 'signin' : 'signup';
+  const signup = OAUTH.mode === 'signup';
+  document.getElementById('authTitle').textContent = signup
+    ? 'Create your account'
+    : 'Welcome back';
+  document.getElementById('authSub').textContent = signup
+    ? 'Join the World Sexual Health Day movement'
+    : 'Sign in to continue to Sexual_ed';
+  document.getElementById('loginLbl').textContent = signup ? 'Continue' : 'Sign in';
+  document.getElementById('socialLbl').textContent = signup
+    ? 'Continue with Google'
+    : 'Sign in with Google';
+  document.getElementById('pwd').autocomplete = signup ? 'new-password' : 'current-password';
+  document.getElementById('overlay').setAttribute(
+    'aria-label',
+    signup ? 'Create your account' : 'Sign in'
+  );
+  document.getElementById('authFooter').innerHTML = signup
+    ? 'Already have an account? <a href="#" id="authToggle" onclick="toggleAuthMode(event)">Sign in</a>'
+    : 'New here? <a href="#" id="authToggle" onclick="toggleAuthMode(event)">Create an account</a>';
+}
+
+function toggleAuthMode(e) {
+  e.preventDefault();
+  setAuthMode(OAUTH.mode === 'signup' ? 'signin' : 'signup');
+  setTimeout(() => document.getElementById('email').focus(), 50);
+}
+
+async function openAuth(mode) {
+  setAuthMode(mode || 'signup');
   step('s1');
   document.getElementById('overlay').classList.add('open');
   document.body.style.overflow = 'hidden';
   setTimeout(() => document.getElementById('email').focus(), 350);
+}
+
+function openSignIn() {
+  openAuth('signin');
 }
 
 function closeAuth() {
@@ -1017,6 +1055,7 @@ function closeAuth() {
   setTimeout(() => {
     step('s1');
     document.getElementById('loginForm').reset();
+    setAuthMode('signup');
   }, 300);
 }
 
@@ -1025,7 +1064,7 @@ function step(id) {
   document.getElementById(id).classList.add('on');
 }
 
-/* Step 1: login → real /authorize redirect */
+/* Step 1: signup/signin → real /authorize redirect */
 async function handleLogin(e) {
   e.preventDefault();
   const btn = document.getElementById('loginBtn');
@@ -1034,12 +1073,14 @@ async function handleLogin(e) {
   lbl.innerHTML = '<div class="spin"></div>';
 
   OAUTH.userEmail = document.getElementById('email').value;
+  console.log('[OAuth2] mode:', OAUTH.mode, 'email:', OAUTH.userEmail);
   await beginAuthorize(OAUTH.userEmail);
 }
 
 /* Social login → Mock IdP (no Google network calls) */
 async function socialLogin(provider) {
   OAUTH.userEmail = `user_${rnd(6)}@${provider}.com`;
+  console.log('[OAuth2] mode:', OAUTH.mode, 'provider:', provider);
   await beginAuthorize(OAUTH.userEmail);
 }
 
